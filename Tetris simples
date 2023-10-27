@@ -1,0 +1,179 @@
+import pygame
+import random
+
+# Inicialização do Pygame
+pygame.init()
+
+# Configurações da tela
+s_width = 800
+s_height = 700
+play_width = 300
+play_height = 600
+block_size = 30
+
+top_left_x = (s_width - play_width) // 2
+top_left_y = s_height - play_height
+
+# Cores
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+
+# Formatos das peças Tetris
+S = [['.....',
+      '.....',
+      '..00.',
+      '.00..',
+      '.....'],
+     ['.....',
+      '..0..',
+      '..00.',
+      '...0.',
+      '.....']]
+
+Z = [['.....',
+      '.....',
+      '.00..',
+      '..00.',
+      '.....'],
+     ['.....',
+      '..0..',
+      '.00..',
+      '.0...',
+      '.....']]
+
+I = [['..0..',
+      '..0..',
+      '..0..',
+      '..0..',
+      '.....'],
+     ['0000.',
+      '.....',
+      '.....',
+      '.....',
+      '.....']]
+
+O = [['.....',
+      '.....',
+      '.00..',
+      '.00..',
+      '.....']]
+
+shapes = [S, Z, I, O]
+shape_colors = [(0, 255, 0), (255, 0, 0), (0, 255, 255), (255, 255, 0)]
+
+# Classe da peça Tetris
+class Piece(object):
+    def __init__(self, x, y, shape):
+        self.x = x
+        self.y = y
+        self.shape = shape
+        self.color = shape_colors[shapes.index(shape)]
+        self.rotation = 0
+
+# Função para criar uma peça Tetris aleatória
+def get_shape():
+    return Piece(5, 0, random.choice(shapes))
+
+# Função para desenhar uma peça na tela
+def draw_piece(win, piece):
+    shape_format = piece.shape[piece.rotation % len(piece.shape)]
+
+    for i, row in enumerate(shape_format):
+        for j, cell in enumerate(row):
+            if cell == '0':
+                pygame.draw.rect(win, piece.color, (piece.x + j, piece.y + i, block_size, block_size))
+
+# Função para verificar colisões
+def check_collision(piece, grid):
+    shape_format = piece.shape[piece.rotation % len(piece.shape)]
+
+    for i, row in range(len(shape_format)):
+        for j, cell in range(len(shape_format[i])):
+            if shape_format[i][j] == '0':
+                if piece.y + i >= len(grid) or piece.x + j < 0 or piece.x + j >= len(grid[0]) or grid[piece.y + i][piece.x + j] != BLACK:
+                    return True
+    return False
+
+# Função para limpar as linhas completas
+def clear_rows(grid, locked_positions):
+    rows_to_clear = []
+    for row in range(len(grid)):
+        if all(cell != BLACK for cell in grid[row]):
+            rows_to_clear.append(row)
+
+    for row in rows_to_clear:
+        del grid[row]
+        grid.insert(0, [BLACK for _ in range(10)])
+        for y, row in enumerate(grid):
+            for x, cell in enumerate(row):
+                if (x, y) in locked_positions:
+                    if locked_positions[(x, y)] == row:
+                        del locked_positions[(x, y)]
+                    else:
+                        locked_positions[(x, y + 1)] = cell
+
+# Função principal do jogo
+def main():
+    win = pygame.display.set_mode((s_width, s_height))
+    pygame.display.set_caption('Tetris')
+    clock = pygame.time.Clock()
+
+    grid = [[BLACK for _ in range(10)] for _ in range(20)]
+    locked_positions = {}
+
+    current_piece = get_shape()
+    game_over = False
+
+    while not game_over:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                game_over = True
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            current_piece.x -= 1
+            if check_collision(current_piece, grid):
+                current_piece.x += 1
+        if keys[pygame.K_RIGHT]:
+            current_piece.x += 1
+            if check_collision(current_piece, grid):
+                current_piece.x -= 1
+        if keys[pygame.K_DOWN]:
+            current_piece.y += 1
+            if check_collision(current_piece, grid):
+                current_piece.y -= 1
+
+        # Rotação
+        if keys[pygame.K_UP]:
+            current_piece.rotation += 1
+            if check_collision(current_piece, grid):
+                current_piece.rotation -= 1
+
+        # Gravidade
+        if not game_over:
+            current_piece.y += 1
+            if check_collision(current_piece, grid):
+                current_piece.y -= 1
+                for i, row in enumerate(current_piece.shape[current_piece.rotation % len(current_piece.shape)]):
+                    for j, cell in enumerate(row):
+                        if cell == '0':
+                            grid[current_piece.y + i][current_piece.x + j] = current_piece.color
+                locked_positions[(current_piece.x, current_piece.y)] = current_piece.color
+                current_piece = get_shape()
+                clear_rows(grid, locked_positions)
+
+        # Atualize a tela
+        win.fill(BLACK)
+        for y, row in enumerate(grid):
+            for x, cell in enumerate(row):
+                if cell != BLACK:
+                    pygame.draw.rect(win, cell,
+                                     (top_left_x + x * block_size, top_left_y + y * block_size, block_size, block_size))
+        draw_piece(win, current_piece)
+        pygame.display.update()
+
+    pygame.quit()
+    quit()
+
+if __name__ == '__main__':
+    main()
